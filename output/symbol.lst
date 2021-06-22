@@ -1,0 +1,15 @@
+Symbol Table:
+
+NAME	TYPE	VALUE					DEFINED AT
+
+NUM1    V       04                      0015
+NUM2    V       05                      0016
+LOOP    L       -                       000E
+
+Referrence Table:
+
+ADDRESS		SYMBOL	
+
+0002        NUM1    
+0006        NUM2    
+000A        LOOP    
