@@ -25,5 +25,6 @@ extern struct link_node st_head;
 struct st *check_sym(char *);
 void mc_add(char *, char *, char *);
 void st_add(char *, char, char *, char *, int);
+void free_st();
 
 #endif

@@ -18,13 +18,15 @@ void mc_add(char *address, char *opcode, char *operand){
 	strcpy(node->address, address);
 	strcpy(node->data, opcode);
 	if(operand != NULL){
-		node->symbol = (char*)calloc(strlen(operand), sizeof(char));
+		node->symbol = (char*)calloc(strlen(operand) + 1, sizeof(char));
 		strcpy(node->symbol, operand);
 	}
 	else
 		node->symbol = NULL;
 	init_node(&(node->link));
 	add_at_tail(&mc_head, &node->link);
+	free(address);
+	address = NULL;
 }
 
 struct st *check_sym(char* name){
@@ -53,10 +55,26 @@ void st_add(char *name, char type, char* value, char *defined_at, int bytes){
         strcpy(node->name, name);
         init_node(&(node->link));
         add_at_tail(&st_head, &node->link);
-    }
+		node->value = (char *)calloc(strlen(value) + 1, sizeof(char));
+    } else {
+		node->value = (char *)realloc(node->value, strlen(value) + 1);
+	}
     node->type = type;
-	node->value = (char *)calloc(strlen(value) + 1, sizeof(char));
     strcpy(node->value, value);
     strcpy(node->defined_at, defined_at);
     node->bytes = bytes;
+	if(strcmp("-", defined_at)){
+		free(defined_at);
+		defined_at = NULL;
+	}
+}
+
+void free_st(){
+	struct st *node = NULL;
+    temp = &st_head;
+	for(temp = temp->next; temp != &st_head; temp = temp->next, free(node)){
+		node = ADDRESS(st, temp, link);
+		free(node->value);
+		node->value = NULL;
+	}
 }

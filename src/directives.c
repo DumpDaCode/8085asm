@@ -83,6 +83,8 @@ int process_directives(char *symbol, char *line, int semi_colon){
 					strncat(fdata, result, strlen(result));
 					data = strtok(NULL, ",");
 				}
+				free(result);
+				result = NULL;
 				break;
 			case 1:
 				memset(fdata, 0, strlen(fdata));
@@ -91,6 +93,8 @@ int process_directives(char *symbol, char *line, int semi_colon){
 					result = dth((int)data[i],2);
 					strncat(fdata, result, strlen(result));
 				}
+				free(result);
+				result = NULL;
 				break;
 		}
 		st_add(symbol, type, fdata, "-", bytes);
@@ -135,7 +139,7 @@ int add_macro(char *name, char *parameters, int count){
 	}
 	int i, j, len, k;
 	char *para_array[count], *line = NULL, *ref_line = NULL, data[20];
-	for(i = 0; i< count; i++){
+	for(i = 0; i < count; i++){
 		if(i == 0)
 			para_array[0] = strtok(parameters, ",");
 		else
@@ -143,11 +147,13 @@ int add_macro(char *name, char *parameters, int count){
 	}
 	struct macro *mnode = (struct macro *)calloc(1, sizeof(struct macro));
 	init_node(&mnode->def_head);
+	char *tempL = NULL;
 	while(file_end == 0){
 		len = 0;
 		line = read_line(input_file);
 		line_no++;
 		ref_line = line;
+		tempL = line;
 		for (i = 0; i < no_of_fields; i++){
 			len += strlen(ref_line);
 			ref_line += strlen(ref_line) + 1;
@@ -162,6 +168,12 @@ int add_macro(char *name, char *parameters, int count){
 			for(j = 0; j<no_of_fields; j++){
 				len = strlen(line);
 				if(!strcmp(line, "ENDM")){
+					free(node->line);
+					free(node);
+					free(tempL);
+					// node->line = NULL;
+					node = NULL;
+					tempL= NULL;
 					if(no_of_fields == 1){
 						init_node(&(mnode->link));
 						strcpy(mnode->name, name);
@@ -170,10 +182,13 @@ int add_macro(char *name, char *parameters, int count){
 						return 1;
 					}
 					else{
+						free(mnode);
+						mnode = NULL;
 						return 0;
 					}
 				}
 				ref_line = line;
+
 				strtok(ref_line, ",");
 				do{
 					for(i = 0; i<count; i++){
@@ -195,9 +210,12 @@ int add_macro(char *name, char *parameters, int count){
 							strcat(node->line, " ");
 					}
 				}while(ref_line!=NULL);
-				line += strlen(line)+1;
+				ref_line = line;
+				line += len+1;
 			}
 		}
+		free(tempL);
+		tempL = NULL;
 		init_node(&(node->link));
 		add_at_tail(&(mnode->def_head), &node->link);
 	}
@@ -232,7 +250,8 @@ int expand_macro(char *name, char *parameters, int count){
 	no_of_operands = 0;
 	for(temp = temp->next; temp != &(node->def_head); temp=temp->next){
 		dnode = ADDRESS(def, temp, link);
-		line = (char *)calloc(strlen(dnode->line), sizeof(char));
+		line = (char *)calloc(strlen(dnode->line)+1, sizeof(char));
+		char *tempL = line;
 		strcpy(line, dnode->line);
 		strtok(line, "#");
 		fprintf(asm_file, "%s", line);
@@ -250,5 +269,25 @@ int expand_macro(char *name, char *parameters, int count){
 				fprintf(asm_file, "%s", ref_line+i);
 		}
 		fprintf(asm_file, "\n");
+		free(tempL);
+		tempL = NULL;
+	}
+}
+
+void free_macro(){
+	if(!is_empty(&macro_head)){
+		struct macro *node = NULL;
+		struct link_node *temp = &macro_head;
+		for(temp = temp->next; temp != &macro_head; temp = temp->next, free(node), node = NULL){
+			node = ADDRESS(macro, temp, link);
+			struct link_node *tempD = &(node->def_head);
+			struct def *dnode = NULL;
+			for(tempD = tempD->next; tempD != &(node->def_head); tempD=tempD->next, free(dnode), dnode = NULL){
+				dnode = ADDRESS(def, tempD, link);
+				free(dnode->line);
+				dnode->line = NULL;
+			}
+		}
+		init_node(&macro_head);
 	}
 }

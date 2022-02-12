@@ -22,5 +22,5 @@ int process_directives(char *, char *, int);
 struct macro *check_if_macro(char *);
 int add_macro(char *, char *, int);
 int expand_macro(char *, char *, int);
-
+void free_macro();
 #endif

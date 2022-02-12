@@ -408,7 +408,7 @@ int process_instructions(struct Instruction *instruction, char *operands){
 	strtok(operands, ",");
 	while(operands != NULL){
 		if(operands[0] == '0' && operands[strlen(operands) - 1] == 'H'){
-			result = evaluate_operands(operands+1);
+			result = evaluate_operands(operands + 1);
 		}
 		else{
 			result = evaluate_operands(operands);
@@ -416,7 +416,7 @@ int process_instructions(struct Instruction *instruction, char *operands){
 		if(result != NULL){
 			if(!strcmp("???", result)){
 				strcat(buffer, "??");
-				symbol = (char *)calloc(strlen(operands), sizeof(char));
+				symbol = (char *)calloc(strlen(operands) + 1, sizeof(char));
 				strcpy(symbol, operands);
 			}
 			else if(!strcmp("-", result)){
@@ -442,9 +442,9 @@ int process_instructions(struct Instruction *instruction, char *operands){
 		if(!strcmp(instruction->list[i].operand, buffer))
 			break;
 	}
-
+	free(buffer);
+	buffer = NULL;
 	if(i != instruction->no_of_variants){
-		char data[3];
 		if(symbol != NULL)
 			mc_add(dth(program_size++, 4), instruction->list[i].opcode, symbol);
 		else
@@ -454,12 +454,25 @@ int process_instructions(struct Instruction *instruction, char *operands){
 				mc_add(dth(program_size++, 4), "??", "-");
 			}
 			else{
-                if(2*length <= strlen(result))
-    				strncpy(data, result + strlen(result) - 2*length, 2);
-                else
+				char data[3];
+				int rlen = strlen(result), size = 2*length;
+                if(size <= rlen){
+    				strncpy(data, result + rlen - size, 2);	
+					data[2] = '\0';	
+				}
+                else{
                     strcpy(data, "00");
+				}
 				mc_add(dth(program_size++, 4), data, "-");
 			}
+		}
+		if(symbol != NULL) {
+			free(symbol);
+			symbol = NULL;
+		}
+		if(strcmp("???", result) && strcmp("-", result)){
+			free(result);
+			result = NULL;
 		}
 		return 1;
 	}

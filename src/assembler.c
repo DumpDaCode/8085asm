@@ -123,7 +123,7 @@ char *read_line(FILE *file){
 
 void assemble(){
 /*
-	This function performs the main functionality of assebler.
+	This function performs the main functionality of assembler.
 	It takes a single line from the inputted file, processes it,
 	updates the appropriate data structures and the end dumps all
 	the data structures to their respective files.
@@ -145,26 +145,28 @@ void assemble(){
 			if(no_of_fields != 0)
 				process_tokens(line);
 		}
+		free(line);
+		line = NULL;
 	}
-	free(line);
 }
 
 void urad(){
 /*
 	Update References and Dump Code.
 */
-	struct link_node *temp = &mc_head;
-	temp = &st_head;
+	struct link_node *temp = &st_head;
 	struct st* node;
-	char data_section[4], buffer[2];
+	char buffer[2];
 	int i;
-	memset(data_section, 0, 4);
-	strcpy(data_section, dth(program_size, 4));
 	fprintf(st_file, "Symbol Table:\n\nNAME\tTYPE\tVALUE\t\t\t\t\tDEFINED AT\n\n");
-	for(temp = temp->next; temp != &st_head; temp= temp->next){
-		node = ADDRESS(st, temp,link);
+	for(temp = temp->next; temp != &st_head; temp = temp->next){
+		node = ADDRESS(st, temp, link);
 		if(strcmp(node->value, "-")){
-			strcpy(node->defined_at, dth(program_size, 4));
+			char *c = NULL;
+			c = dth(program_size, 4);
+			strcpy(node->defined_at, c);
+			free(c);
+			c = NULL;
 		}
 		int len = strlen(node->value);
 		for(i = 0; i<len; i=i+2){
@@ -182,8 +184,8 @@ void urad(){
 	int freeze = 0;
 	char abuffer[5];
 	struct mc* snode;
-	for(temp = temp->next; temp != &mc_head; temp= temp->next){
-		snode = ADDRESS(mc, temp,link);
+	for(temp = temp->next; temp != &mc_head; temp= temp->next, free(snode), snode = NULL){
+		snode = ADDRESS(mc, temp, link);
 		switch(freeze){
 			case 2: strncpy(snode->data, abuffer+2, 2);
 				freeze--;
@@ -199,17 +201,25 @@ void urad(){
 			freeze = 2;
 			fprintf(st_file, "%-12s%-8s\n", snode->address, snode->symbol);
 		}
+		free(snode->symbol);
+		snode->symbol = NULL;
 	}
+	init_node(&mc_head);
+	free_st();
+	fclose(asm_file);
+	fclose(st_file);
+	fclose(pl_file);
 }
 
 void process_macro(){
 /*
 	This is used for macro processing in the first stage of processing.
 */
-	char *line = NULL, *symbol;
+	char *line = NULL, *ref_line = NULL, *symbol;
 	int semi_colon = -1;
 	while(file_end == 0){
 		line = read_line(input_file);
+		ref_line = line;
 		line_no++;
 		if(no_of_fields > 3){
 			fprintf(stderr, "%d: Illegal number of fields detected\n", line_no);
@@ -223,7 +233,7 @@ void process_macro(){
 				else{
 					semi_colon = 0;
 				}
-				symbol = (char *)calloc(strlen(line), sizeof(char));
+				symbol = (char *)calloc(strlen(line)+1, sizeof(char));
 				strcpy(symbol, line);
 				line+=length+1;
 				if(no_of_fields >= 2 && !strcmp("MACRO", line)){
@@ -256,10 +266,15 @@ void process_macro(){
 						break;
 					}
 				}
+				free(symbol);
+				symbol = NULL;
 			}
 		}
+		free(ref_line);
+		ref_line = NULL;
 	}
-	free(line);
+	free_macro();
+	fclose(input_file);
 }
 
 void process_tokens(char *line){
@@ -284,7 +299,7 @@ void process_tokens(char *line){
 			semi_colon == 0;
 		}
         if(length < 7){
-            symbol = (char *)calloc(strlen(line), sizeof(char));
+            symbol = (char *)calloc(strlen(line)+1, sizeof(char));
             strcpy(symbol, line);
         }
         else{
@@ -343,6 +358,8 @@ void process_tokens(char *line){
 			}
 		}
 	}
+	free(symbol);
+	symbol = NULL;
 	return;
 }
 
@@ -352,8 +369,8 @@ char *evaluate_operands(char *string){
 	checking.
 */
 	int len = strlen(string);
-	char *machine_defined = "ABCDEHLM", *expr = "+-/*)($",
-		*buffer = (char *)calloc(len - 2, sizeof(char)), *op;
+	char machine_defined[] = "ABCDEHLM", expr[] = "+-/*)($",
+		buffer[len];
 	if(string[0] == '\'' && string[strlen(string) - 1] == '\''){
 		//Ascii to Hex Conversion:
 		if(strlen(string) == 3){
@@ -374,19 +391,23 @@ char *evaluate_operands(char *string){
             case 4:
                 if(string[len - 1] == 'D'){
                     strncpy(buffer, string, len - 1);
+					buffer[len-1] = '\0';
                     return vacin('D', "0123456789", buffer, 2);
                 }
                 if(string[len - 1] == 'Q'){
                     strncpy(buffer, string, len - 1);
+					buffer[len-1] = '\0';
                     return vacin('Q', "01234567", buffer, 2);
                 }
             case 5:
-				if(string[len -1] == 'H'){
+				if(string[len - 1] == 'H'){
 					if(len < 4){
 						strncpy(buffer, string, len - 1);
+						buffer[len-1] = '\0';
 						return vacin('H', "0123456789ABCDEF", buffer, 2);
 					}
 					strncpy(buffer, string, len - 1);
+					buffer[len-1] = '\0';
 					return vacin('H', "0123456789ABCDEF", buffer, 4);
 				}
             case 6:
@@ -403,6 +424,8 @@ char *evaluate_operands(char *string){
 				}
 				return "???";
         }
+		free(string);
+		string = NULL;
     }
 }
 
@@ -434,7 +457,7 @@ char *vacin(char type, char *va_str, char* str, int length){
 				dec = atoi(str);
 			break;
 		case 'H':
-			data = (char *)calloc(length, sizeof(char));
+			data = (char *)calloc(length + 1, sizeof(char));
 			memset(data, 48, length - strlen(str));
 			strcat(data, str);
 			return data;
@@ -456,7 +479,7 @@ char *vacin(char type, char *va_str, char* str, int length){
 }
 
 char *dth(int dec, int length){
-	char *buffer = (char *)calloc(length, sizeof(char));
+	char *buffer = (char *)calloc(length + 1, sizeof(char));
 	char *hex_list = "0123456789ABCDEF";
     int i;
 	for(i= length - 1; i>=0; i--){
